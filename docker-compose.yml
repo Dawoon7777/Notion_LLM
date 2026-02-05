@@ -1,0 +1,9 @@
+version: '3.8'
+
+services:
+  notion-rag:
+    build: .
+    env_file:
+      - .env
+    container_name: notion-ollama-rag
+    restart: no

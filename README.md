@@ -111,7 +111,17 @@ ollama pull llama3
 
 ## 🚀 사용 방법
 
-### 기본 실행
+### Docker로 실행 (권장)
+
+```bash
+# 이미지 빌드
+docker-compose build
+
+# 실행
+docker-compose run --rm notion-rag
+```
+
+### 직접 실행
 
 ```bash
 python main.py
