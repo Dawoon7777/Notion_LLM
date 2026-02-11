@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notion RAG 검색</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        
+        .search-box {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+        }
+        
+        input {
+            flex: 1;
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: border 0.3s;
+        }
+        
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        button {
+            padding: 15px 30px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        
+        button:hover {
+            background: #5568d3;
+        }
+        
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .result {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 20px;
+        }
+        
+        .answer {
+            line-height: 1.8;
+            color: #333;
+            margin-bottom: 20px;
+            white-space: pre-wrap;
+        }
+        
+        .sources {
+            border-top: 1px solid #e0e0e0;
+            padding-top: 15px;
+        }
+        
+        .sources h3 {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 10px;
+        }
+        
+        .source-item {
+            background: white;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 5px;
+            font-size: 14px;
+        }
+        
+        .loading {
+            text-align: center;
+            color: #667eea;
+            font-size: 18px;
+        }
+        
+        .error {
+            background: #fee;
+            color: #c33;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🤖 Notion RAG 검색</h1>
+        
+        <div class="search-box">
+            <input 
+                type="text" 
+                id="question" 
+                placeholder="질문을 입력하세요..."
+                onkeypress="if(event.key==='Enter') search()"
+            >
+            <button onclick="search()" id="searchBtn">검색</button>
+        </div>
+        
+        <div id="result"></div>
+    </div>
+    
+    <script>
+        const API_URL = 'http://localhost:8000';
+        
+        async function search() {
+            const question = document.getElementById('question').value.trim();
+            const resultDiv = document.getElementById('result');
+            const searchBtn = document.getElementById('searchBtn');
+            
+            if (!question) {
+                alert('질문을 입력해주세요');
+                return;
+            }
+            
+            searchBtn.disabled = true;
+            resultDiv.innerHTML = '<div class="loading">🔍 검색 중...</div>';
+            
+            try {
+                const response = await fetch(`${API_URL}/query`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ question })
+                });
+                
+                if (!response.ok) {
+                    throw new Error('검색 실패');
+                }
+                
+                const data = await response.json();
+                
+                resultDiv.innerHTML = `
+                    <div class="result">
+                        <div class="answer">${data.answer}</div>
+                        <div class="sources">
+                            <h3>📄 참고 문서</h3>
+                            ${data.sources.map(s => `
+                                <div class="source-item">📌 ${s.title}</div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        ❌ 오류: ${error.message}
+                    </div>
+                `;
+            } finally {
+                searchBtn.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>

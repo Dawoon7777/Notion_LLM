@@ -118,28 +118,27 @@ class OllamaEmbeddings:
     def _get_embedding(self, text: str) -> List[float]:
         """Ollama API를 통해 임베딩 생성"""
         try:
-            url = f"{self.base_url}/api/embeddings"
+            url = f"{self.base_url}/api/embed"
             payload = {
-                "model": self.model,
-                "prompt": text
+                "model": "bge-m3",
+                "input": text
             }
             response = requests.post(url, json=payload)
             response.raise_for_status()
-            return response.json()["embedding"]
+            result = response.json()
+            return result.get("embeddings", [[0.0] * 1024])[0]
         except Exception as e:
             print(f"임베딩 생성 오류: {e}")
             # 실패 시 더미 임베딩 반환
-            return [0.0] * 384
+            return [0.0] * 1024
 
 
 class VectorStoreManager:
     """ChromaDB를 사용한 벡터 저장소 관리"""
     
     def __init__(self, persist_directory: str = "./chroma_db"):
-        self.client = chromadb.Client(Settings(
-            persist_directory=persist_directory,
-            anonymized_telemetry=False
-        ))
+        self.persist_directory = persist_directory
+        self.client = chromadb.PersistentClient(path=persist_directory)
         self.collection = self.client.get_or_create_collection(
             name="notion_pages",
             metadata={"hnsw:space": "cosine"}
@@ -222,7 +221,7 @@ class VectorStoreManager:
 class OllamaQA:
     """Ollama를 사용한 질의응답"""
     
-    def __init__(self, base_url: str, model: str = "llama3"):
+    def __init__(self, base_url: str, model: str = "llama3.3:70b"):
         self.base_url = base_url
         self.model = model
     

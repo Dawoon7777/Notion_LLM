@@ -7,3 +7,16 @@ services:
       - .env
     container_name: notion-ollama-rag
     restart: no
+    volumes:
+      - ./chroma_db:/app/chroma_db
+  
+  api:
+    build: .
+    command: python api.py
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./chroma_db:/app/chroma_db
+    restart: unless-stopped
