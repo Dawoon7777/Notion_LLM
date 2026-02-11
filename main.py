@@ -174,6 +174,35 @@ class VectorStoreManager:
         
         print(f"✅ 페이지 '{title}' 인덱싱 완료 ({len(chunks)} 청크)")
     
+    def delete_page(self, page_id: str):
+        """특정 페이지의 모든 청크 삭제"""
+        try:
+            results = self.collection.get(where={"page_id": page_id})
+            if results["ids"]:
+                self.collection.delete(ids=results["ids"])
+                print(f"🗑️ 페이지 {page_id} 삭제 완료 ({len(results['ids'])} 청크)")
+            else:
+                print(f"⚠️ 페이지 {page_id}를 찾을 수 없습니다")
+        except Exception as e:
+            print(f"삭제 오류: {e}")
+    
+    def update_page(self, page_data: Dict[str, str]):
+        """페이지 업데이트 (기존 삭제 후 재추가)"""
+        if not page_data:
+            return
+        
+        page_id = page_data["page_id"]
+        title = page_data["title"]
+        
+        # 기존 데이터 삭제
+        results = self.collection.get(where={"page_id": page_id})
+        if results["ids"]:
+            self.collection.delete(ids=results["ids"])
+            print(f"🔄 기존 페이지 '{title}' 삭제 중...")
+        
+        # 새 데이터 추가
+        self.add_page(page_data)
+    
     def _split_into_chunks(self, text: str, chunk_size: int = 500) -> List[str]:
         """텍스트를 청크로 분할"""
         paragraphs = text.split("\n")
@@ -308,6 +337,8 @@ def main():
     if len(sys.argv) < 2:
         print("사용법:")
         print("  인덱싱: python main.py index <page_id1> <page_id2> ...")
+        print("  업데이트: python main.py update <page_id1> <page_id2> ...")
+        print("  삭제: python main.py delete <page_id1> <page_id2> ...")
         print("  질문: python main.py query '<질문>'")
         return
     
@@ -325,6 +356,40 @@ def main():
             return
         
         index_notion_pages(page_ids)
+    
+    elif command == "update":
+        if len(sys.argv) < 3:
+            print("❌ 업데이트할 페이지 ID를 지정해주세요.")
+            return
+        
+        page_ids = sys.argv[2:]
+        print("🔄 Notion 페이지 업데이트 시작\n")
+        
+        extractor = NotionPageExtractor(notion)
+        vector_store = VectorStoreManager()
+        
+        for page_id in page_ids:
+            print(f"📖 페이지 {page_id} 처리 중...")
+            page_data = extractor.get_page_content(page_id)
+            if page_data:
+                vector_store.update_page(page_data)
+        
+        print("\n✅ 모든 페이지 업데이트 완료!")
+    
+    elif command == "delete":
+        if len(sys.argv) < 3:
+            print("❌ 삭제할 페이지 ID를 지정해주세요.")
+            return
+        
+        page_ids = sys.argv[2:]
+        print("🗑️ 페이지 삭제 시작\n")
+        
+        vector_store = VectorStoreManager()
+        
+        for page_id in page_ids:
+            vector_store.delete_page(page_id)
+        
+        print("\n✅ 삭제 완료!")
     
     elif command == "query":
         if len(sys.argv) < 3:

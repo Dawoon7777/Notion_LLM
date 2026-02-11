@@ -78,6 +78,54 @@ def index_pages(request: IndexRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.post("/update")
+def update_pages(request: IndexRequest):
+    """Notion 페이지 업데이트"""
+    try:
+        extractor = NotionPageExtractor(notion)
+        vector_store = VectorStoreManager()
+        
+        updated = []
+        for page_id in request.page_ids:
+            page_data = extractor.get_page_content(page_id)
+            if page_data:
+                vector_store.update_page(page_data)
+                updated.append({
+                    "page_id": page_id,
+                    "title": page_data["title"]
+                })
+        
+        return {
+            "status": "success",
+            "updated_pages": updated,
+            "count": len(updated)
+        }
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/delete")
+def delete_pages(request: IndexRequest):
+    """페이지 삭제"""
+    try:
+        vector_store = VectorStoreManager()
+        
+        deleted = []
+        for page_id in request.page_ids:
+            vector_store.delete_page(page_id)
+            deleted.append(page_id)
+        
+        return {
+            "status": "success",
+            "deleted_pages": deleted,
+            "count": len(deleted)
+        }
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.post("/query", response_model=QueryResponse)
 def query_rag(request: QueryRequest):
     """RAG 시스템에 질문"""

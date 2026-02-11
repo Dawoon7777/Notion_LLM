@@ -5,9 +5,11 @@ Notion 페이지를 ChromaDB에 인덱싱하고, 자연어 질문으로 검색�
 ## ✨ 기능
 
 - 📖 여러 Notion 페이지 자동 인덱싱
+- 🔄 페이지 업데이트 및 삭제 지원
 - 🔍 벡터 검색을 통한 관련 문서 찾기
 - 🤖 Ollama를 활용한 컨텍스트 기반 답변 생성
 - 💾 ChromaDB를 사용한 로컬 벡터 저장소
+- 🌐 REST API 및 CLI 인터페이스 제공
 
 ## 🛠 환경 요구사항
 
@@ -77,7 +79,19 @@ docker-compose run --rm notion-rag python main.py index <page_id1> <page_id2> <p
 docker-compose run --rm notion-rag python main.py index
 ```
 
-**3. 질문하기**
+**3. 페이지 업데이트**
+```bash
+# Notion에서 수정한 페이지 재인덱싱
+docker-compose run --rm notion-rag python main.py update <page_id>
+```
+
+**4. 페이지 삭제**
+```bash
+# 벡터 DB에서 페이지 제거
+docker-compose run --rm notion-rag python main.py delete <page_id>
+```
+
+**5. 질문하기**
 ```bash
 docker-compose run --rm notion-rag python main.py query "프로젝트의 주요 목표는?"
 ```
@@ -90,6 +104,12 @@ pip install -r requirements.txt
 
 # 인덱싱
 python main.py index <page_id>
+
+# 업데이트
+python main.py update <page_id>
+
+# 삭제
+python main.py delete <page_id>
 
 # 질문
 python main.py query "질문 내용"
@@ -118,7 +138,40 @@ docker-compose run --rm notion-rag python main.py index \
 ✅ 모든 페이지 인덱싱 완료!
 ```
 
-### 2. 질문하기
+### 2. 페이지 업데이트
+
+```bash
+docker-compose run --rm notion-rag python main.py update abc123def456
+```
+
+출력:
+```
+🔄 Notion 페이지 업데이트 시작
+
+📖 페이지 abc123def456 처리 중...
+🔄 기존 페이지 '프로젝트 개요' 삭제 중...
+🗑️ 페이지 abc123def456 삭제 완료 (5 청크)
+✅ 페이지 '프로젝트 개요' 인덱싱 완료 (6 청크)
+
+✅ 모든 페이지 업데이트 완료!
+```
+
+### 3. 페이지 삭제
+
+```bash
+docker-compose run --rm notion-rag python main.py delete abc123def456
+```
+
+출력:
+```
+🗑️ 페이지 삭제 시작
+
+🗑️ 페이지 abc123def456 삭제 완료 (6 청크)
+
+✅ 삭제 완료!
+```
+
+### 4. 질문하기
 
 ```bash
 docker-compose run --rm notion-rag python main.py query "이 프로젝트에서 사용하는 기술은?"
