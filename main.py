@@ -284,6 +284,57 @@ class OllamaQA:
         
         except Exception as e:
             return f"답변 생성 오류: {e}"
+    
+    def answer_with_history(self, query: str, context_docs: List[Dict], chat_history: List[Dict]) -> str:
+        """대화 기록과 컨텍스트를 모두 고려하여 답변"""
+        # 노션 문서 컨텍스트
+        context = "\n\n".join([
+            f"[{doc['title']}]\n{doc['content']}" 
+            for doc in context_docs
+        ])
+        
+        # 대화 기록 포맷팅
+        history_text = ""
+        if chat_history:
+            history_text = "\n".join([
+                f"{'사용자' if msg['role'] == 'user' else 'AI'}: {msg['content']}"
+                for msg in chat_history[-6:]  # 최근 3턴(6개 메시지)만 사용
+            ])
+        
+        # 최적화된 프롬프트
+        prompt = f"""당신은 Notion 문서를 기반으로 답변하는 AI 어시스턴트입니다.
+
+# 참고 문서
+{context}
+
+# 이전 대화 내역
+{history_text if history_text else "(없음)"}
+
+# 현재 질문
+{query}
+
+# 답변 지침
+1. 참고 문서의 내용을 우선적으로 활용하세요
+2. 이전 대화 맥락을 고려하여 자연스럽게 답변하세요
+3. 문서에 없는 내용은 추측하지 말고 "문서에서 해당 정보를 찾을 수 없습니다"라고 답하세요
+4. 간결하고 명확하게 답변하세요
+
+답변:"""
+        
+        try:
+            url = f"{self.base_url}/api/generate"
+            payload = {
+                "model": self.model,
+                "prompt": prompt,
+                "stream": False
+            }
+            
+            response = requests.post(url, json=payload)
+            response.raise_for_status()
+            return response.json()["response"]
+        
+        except Exception as e:
+            return f"답변 생성 오류: {e}"
 
 
 def index_notion_pages(page_ids: List[str]):

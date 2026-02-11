@@ -119,11 +119,34 @@
             border-radius: 10px;
             margin-top: 20px;
         }
+        
+        .session-info {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .clear-btn {
+            background: #ff6b6b;
+            padding: 8px 16px;
+            font-size: 14px;
+            margin-left: 10px;
+        }
+        
+        .clear-btn:hover {
+            background: #ee5a52;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>🤖 Notion RAG 검색</h1>
+        
+        <div class="session-info">
+            <span id="sessionStatus">새로운 대화</span>
+            <button class="clear-btn" onclick="clearSession()" id="clearBtn" style="display:none;">대화 초기화</button>
+        </div>
         
         <div class="search-box">
             <input 
@@ -140,6 +163,39 @@
     
     <script>
         const API_URL = 'http://localhost:8000';
+        let sessionId = null;
+        
+        function updateSessionStatus() {
+            const statusEl = document.getElementById('sessionStatus');
+            const clearBtn = document.getElementById('clearBtn');
+            
+            if (sessionId) {
+                statusEl.textContent = '💬 대화 진행 중';
+                clearBtn.style.display = 'inline-block';
+            } else {
+                statusEl.textContent = '새로운 대화';
+                clearBtn.style.display = 'none';
+            }
+        }
+        
+        async function clearSession() {
+            if (!sessionId) return;
+            
+            if (!confirm('대화 기록을 초기화하시겠습니까?')) return;
+            
+            try {
+                await fetch(`${API_URL}/session/${sessionId}`, {
+                    method: 'DELETE'
+                });
+                
+                sessionId = null;
+                updateSessionStatus();
+                document.getElementById('result').innerHTML = '';
+                alert('대화가 초기화되었습니다');
+            } catch (error) {
+                alert('초기화 실패: ' + error.message);
+            }
+        }
         
         async function search() {
             const question = document.getElementById('question').value.trim();
@@ -160,7 +216,10 @@
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({ question })
+                    body: JSON.stringify({ 
+                        question,
+                        session_id: sessionId
+                    })
                 });
                 
                 if (!response.ok) {
@@ -168,6 +227,12 @@
                 }
                 
                 const data = await response.json();
+                
+                // 세션 ID 저장
+                if (data.session_id) {
+                    sessionId = data.session_id;
+                    updateSessionStatus();
+                }
                 
                 resultDiv.innerHTML = `
                     <div class="result">
@@ -180,6 +245,9 @@
                         </div>
                     </div>
                 `;
+                
+                // 입력창 초기화
+                document.getElementById('question').value = '';
             } catch (error) {
                 resultDiv.innerHTML = `
                     <div class="error">
