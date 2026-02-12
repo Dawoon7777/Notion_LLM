@@ -45,6 +45,7 @@ class QueryRequest(BaseModel):
     question: str
     session_id: Optional[str] = None
     n_results: Optional[int] = 3
+    use_web_search: Optional[bool] = True
 
 
 class QueryResponse(BaseModel):
@@ -54,12 +55,75 @@ class QueryResponse(BaseModel):
 
 
 # main.py의 클래스들 임포트
-from main import NotionPageExtractor, VectorStoreManager, OllamaQA
+from main import NotionPageExtractor, VectorStoreManager, OllamaQA, WebSearcher
 
 
 @app.get("/")
 def root():
     return {"message": "Notion RAG API", "status": "running"}
+
+
+@app.get("/pages")
+def list_pages():
+    """Notion 워크스페이스의 모든 페이지 목록"""
+    try:
+        extractor = NotionPageExtractor(notion)
+        pages = extractor.search_all_pages()
+        
+        return {
+            "status": "success",
+            "count": len(pages),
+            "pages": pages
+        }
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/index-all")
+def index_all_pages():
+    """워크스페이스의 모든 페이지 인덱싱"""
+    try:
+        extractor = NotionPageExtractor(notion)
+        vector_store = VectorStoreManager()
+        
+        pages = extractor.search_all_pages()
+        
+        if not pages:
+            raise HTTPException(status_code=404, detail="페이지를 찾을 수 없습니다")
+        
+        indexed = []
+        failed = []
+        
+        for page in pages:
+            try:
+                page_data = extractor.get_page_content(page['id'])
+                if page_data:
+                    vector_store.add_page(page_data)
+                    indexed.append({
+                        "page_id": page['id'],
+                        "title": page['title']
+                    })
+            except Exception as e:
+                failed.append({
+                    "page_id": page['id'],
+                    "title": page['title'],
+                    "error": str(e)
+                })
+        
+        return {
+            "status": "success",
+            "total": len(pages),
+            "indexed": len(indexed),
+            "failed": len(failed),
+            "indexed_pages": indexed,
+            "failed_pages": failed
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/index")
@@ -139,7 +203,7 @@ def delete_pages(request: IndexRequest):
 
 @app.post("/query", response_model=QueryResponse)
 def query_rag(request: QueryRequest):
-    """RAG 시스템에 질문 (대화 기록 포함)"""
+    """RAG 시스템에 질문 (대화 기록 포함, 웹 검색 + 일반 지식 혼합)"""
     try:
         # 세션 ID 생성 또는 가져오기
         session_id = request.session_id or str(uuid.uuid4())
@@ -151,17 +215,23 @@ def query_rag(request: QueryRequest):
         vector_store = VectorStoreManager()
         qa = OllamaQA(OLLAMA_BASE_URL)
         
-        # 관련 문서 검색
+        # 관련 문서 검색 (없어도 계속 진행)
         relevant_docs = vector_store.search(request.question, n_results=request.n_results)
         
-        if not relevant_docs:
-            raise HTTPException(status_code=404, detail="관련 문서를 찾을 수 없습니다")
+        # 웹 검색 (옵션)
+        web_results = []
+        if request.use_web_search:
+            try:
+                web_searcher = WebSearcher()
+                web_results = web_searcher.search(request.question, max_results=3)
+            except Exception as e:
+                print(f"웹 검색 실패: {e}")
         
         # 대화 기록 가져오기
         chat_history = chat_sessions[session_id]
         
-        # 답변 생성 (대화 기록 포함)
-        answer = qa.answer_with_history(request.question, relevant_docs, chat_history)
+        # 답변 생성 (Notion + 웹 검색 + 일반 지식)
+        answer = qa.answer_with_history(request.question, relevant_docs, chat_history, web_results)
         
         # 대화 기록 저장
         chat_sessions[session_id].append({"role": "user", "content": request.question})
@@ -171,15 +241,21 @@ def query_rag(request: QueryRequest):
         if len(chat_sessions[session_id]) > 20:
             chat_sessions[session_id] = chat_sessions[session_id][-20:]
         
-        sources = [
-            {"title": doc["title"], "page_id": doc["page_id"]}
-            for doc in relevant_docs
-        ]
+        # 출처 정리 (Notion + 웹)
+        sources = []
+        if relevant_docs:
+            sources.extend([
+                {"title": f"📄 {doc['title']}", "page_id": doc["page_id"]}
+                for doc in relevant_docs
+            ])
+        if web_results:
+            sources.extend([
+                {"title": f"🌐 {result['title']}", "page_id": result['url']}
+                for result in web_results[:2]  # 상위 2개만
+            ])
         
         return QueryResponse(answer=answer, sources=sources, session_id=session_id)
     
-    except HTTPException:
-        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

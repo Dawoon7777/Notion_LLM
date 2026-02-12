@@ -6,6 +6,7 @@ import chromadb
 from chromadb.config import Settings
 from typing import List, Dict
 import hashlib
+from duckduckgo_search import DDGS
 
 load_dotenv()
 
@@ -21,6 +22,59 @@ class NotionPageExtractor:
     
     def __init__(self, notion_client):
         self.notion = notion_client
+    
+    def search_all_pages(self) -> List[Dict]:
+        """워크스페이스의 모든 페이지 검색"""
+        try:
+            all_pages = []
+            has_more = True
+            start_cursor = None
+            
+            while has_more:
+                params = {"filter": {"property": "object", "value": "page"}}
+                if start_cursor:
+                    params["start_cursor"] = start_cursor
+                
+                response = self.notion.search(**params)
+                
+                for page in response.get("results", []):
+                    page_id = page["id"]
+                    title = self._get_page_title_from_search(page)
+                    all_pages.append({
+                        "id": page_id,
+                        "title": title
+                    })
+                
+                has_more = response.get("has_more", False)
+                start_cursor = response.get("next_cursor")
+            
+            return all_pages
+        
+        except Exception as e:
+            print(f"페이지 검색 오류: {e}")
+            return []
+    
+    def _get_page_title_from_search(self, page):
+        """검색 결과에서 페이지 제목 추출"""
+        try:
+            properties = page.get("properties", {})
+            
+            # title 속성 찾기
+            for prop_name, prop_value in properties.items():
+                if prop_value.get("type") == "title":
+                    title_array = prop_value.get("title", [])
+                    if title_array:
+                        return title_array[0].get("plain_text", "Untitled")
+            
+            # title 속성이 없으면 다른 속성 확인
+            if "title" in page:
+                title_array = page.get("title", [])
+                if title_array:
+                    return title_array[0].get("plain_text", "Untitled")
+            
+            return "Untitled"
+        except:
+            return "Untitled"
     
     def extract_text_from_rich_text(self, rich_text_array):
         """Rich text 배열에서 순수 텍스트 추출"""
@@ -247,6 +301,31 @@ class VectorStoreManager:
         return documents
 
 
+class WebSearcher:
+    """DuckDuckGo를 사용한 웹 검색"""
+    
+    def __init__(self):
+        self.ddgs = DDGS()
+    
+    def search(self, query: str, max_results: int = 3) -> List[Dict]:
+        """웹 검색 수행"""
+        try:
+            results = []
+            search_results = self.ddgs.text(query, max_results=max_results)
+            
+            for result in search_results:
+                results.append({
+                    "title": result.get("title", ""),
+                    "snippet": result.get("body", ""),
+                    "url": result.get("href", "")
+                })
+            
+            return results
+        except Exception as e:
+            print(f"웹 검색 오류: {e}")
+            return []
+
+
 class OllamaQA:
     """Ollama를 사용한 질의응답"""
     
@@ -285,13 +364,23 @@ class OllamaQA:
         except Exception as e:
             return f"답변 생성 오류: {e}"
     
-    def answer_with_history(self, query: str, context_docs: List[Dict], chat_history: List[Dict]) -> str:
-        """대화 기록과 컨텍스트를 모두 고려하여 답변"""
+    def answer_with_history(self, query: str, context_docs: List[Dict], chat_history: List[Dict], web_results: List[Dict] = None) -> str:
+        """대화 기록, 컨텍스트, 웹 검색 결과를 모두 고려하여 답변"""
         # 노션 문서 컨텍스트
-        context = "\n\n".join([
-            f"[{doc['title']}]\n{doc['content']}" 
-            for doc in context_docs
-        ])
+        context = ""
+        if context_docs:
+            context = "\n\n".join([
+                f"[{doc['title']}]\n{doc['content']}" 
+                for doc in context_docs
+            ])
+        
+        # 웹 검색 결과
+        web_context = ""
+        if web_results:
+            web_context = "\n\n".join([
+                f"[웹 검색: {result['title']}]\n{result['snippet']}"
+                for result in web_results
+            ])
         
         # 대화 기록 포맷팅
         history_text = ""
@@ -302,24 +391,28 @@ class OllamaQA:
             ])
         
         # 최적화된 프롬프트
-        prompt = f"""당신은 Notion 문서를 기반으로 답변하는 AI 어시스턴트입니다.
+        prompt_parts = ["당신은 Notion 문서와 웹 검색을 활용하는 AI 어시스턴트입니다.\n"]
+        
+        if context:
+            prompt_parts.append(f"# 참고 문서 (Notion)\n{context}\n")
+        
+        if web_context:
+            prompt_parts.append(f"# 웹 검색 결과\n{web_context}\n")
+        
+        prompt_parts.append(f"# 이전 대화 내역\n{history_text if history_text else '(없음)'}\n")
+        prompt_parts.append(f"# 현재 질문\n{query}\n")
+        
+        prompt_parts.append("""# 답변 지침
+1. **우선순위**: Notion 문서 > 웹 검색 결과 > 일반 지식
+2. Notion 문서에 관련 내용이 있다면 그것을 중심으로 답변하세요
+3. 웹 검색 결과로 최신 정보나 추가 정보를 보충하세요
+4. 이전 대화 맥락을 고려하여 자연스럽게 답변하세요
+5. 간결하고 명확하게 답변하세요
+6. 출처를 구분하지 말고 자연스럽게 통합하세요
 
-# 참고 문서
-{context}
-
-# 이전 대화 내역
-{history_text if history_text else "(없음)"}
-
-# 현재 질문
-{query}
-
-# 답변 지침
-1. 참고 문서의 내용을 우선적으로 활용하세요
-2. 이전 대화 맥락을 고려하여 자연스럽게 답변하세요
-3. 문서에 없는 내용은 추측하지 말고 "문서에서 해당 정보를 찾을 수 없습니다"라고 답하세요
-4. 간결하고 명확하게 답변하세요
-
-답변:"""
+답변:""")
+        
+        prompt = "\n".join(prompt_parts)
         
         try:
             url = f"{self.base_url}/api/generate"
@@ -387,7 +480,9 @@ def main():
     
     if len(sys.argv) < 2:
         print("사용법:")
-        print("  인덱싱: python main.py index <page_id1> <page_id2> ...")
+        print("  전체 인덱싱: python main.py index-all")
+        print("  개별 인덱싱: python main.py index <page_id1> <page_id2> ...")
+        print("  페이지 목록: python main.py list")
         print("  업데이트: python main.py update <page_id1> <page_id2> ...")
         print("  삭제: python main.py delete <page_id1> <page_id2> ...")
         print("  질문: python main.py query '<질문>'")
@@ -395,7 +490,46 @@ def main():
     
     command = sys.argv[1]
     
-    if command == "index":
+    if command == "list":
+        print("📋 Notion 페이지 목록 조회 중...\n")
+        
+        extractor = NotionPageExtractor(notion)
+        pages = extractor.search_all_pages()
+        
+        if not pages:
+            print("❌ 페이지를 찾을 수 없습니다.")
+            return
+        
+        print(f"✅ 총 {len(pages)}개 페이지 발견:\n")
+        for i, page in enumerate(pages, 1):
+            print(f"{i}. {page['title']}")
+            print(f"   ID: {page['id']}\n")
+    
+    elif command == "index-all":
+        print("🚀 전체 Notion 페이지 인덱싱 시작\n")
+        
+        extractor = NotionPageExtractor(notion)
+        pages = extractor.search_all_pages()
+        
+        if not pages:
+            print("❌ 인덱싱할 페이지를 찾을 수 없습니다.")
+            return
+        
+        print(f"📚 총 {len(pages)}개 페이지 발견\n")
+        
+        vector_store = VectorStoreManager()
+        success_count = 0
+        
+        for page in pages:
+            print(f"📖 '{page['title']}' 처리 중...")
+            page_data = extractor.get_page_content(page['id'])
+            if page_data:
+                vector_store.add_page(page_data)
+                success_count += 1
+        
+        print(f"\n✅ 인덱싱 완료! ({success_count}/{len(pages)} 성공)")
+    
+    elif command == "index":
         if len(sys.argv) < 3:
             # 기본 페이지 ID 사용
             page_ids = [NOTION_PAGE_ID] if NOTION_PAGE_ID else []

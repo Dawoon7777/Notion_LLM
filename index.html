@@ -73,6 +73,64 @@
             cursor: not-allowed;
         }
         
+        .chat-container {
+            height: 500px;
+            overflow-y: auto;
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .message {
+            margin-bottom: 20px;
+            animation: fadeIn 0.3s;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .message.user {
+            text-align: right;
+        }
+        
+        .message.assistant {
+            text-align: left;
+        }
+        
+        .message-content {
+            display: inline-block;
+            max-width: 70%;
+            padding: 15px 20px;
+            border-radius: 15px;
+            text-align: left;
+        }
+        
+        .message.user .message-content {
+            background: #667eea;
+            color: white;
+        }
+        
+        .message.assistant .message-content {
+            background: white;
+            color: #333;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        
+        .sources {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #e0e0e0;
+            font-size: 12px;
+            color: #666;
+        }
+        
+        .source-item {
+            margin: 5px 0;
+        }
+        
         .result {
             background: #f8f9fa;
             padding: 20px;
@@ -85,17 +143,6 @@
             color: #333;
             margin-bottom: 20px;
             white-space: pre-wrap;
-        }
-        
-        .sources {
-            border-top: 1px solid #e0e0e0;
-            padding-top: 15px;
-        }
-        
-        .sources h3 {
-            font-size: 14px;
-            color: #666;
-            margin-bottom: 10px;
         }
         
         .source-item {
@@ -148,6 +195,13 @@
             <button class="clear-btn" onclick="clearSession()" id="clearBtn" style="display:none;">대화 초기화</button>
         </div>
         
+        <div class="chat-container" id="chatContainer">
+            <div class="empty-state">
+                <div class="empty-state-icon">💬</div>
+                <div>질문을 입력하면 대화가 시작됩니다</div>
+            </div>
+        </div>
+        
         <div class="search-box">
             <input 
                 type="text" 
@@ -155,10 +209,8 @@
                 placeholder="질문을 입력하세요..."
                 onkeypress="if(event.key==='Enter') search()"
             >
-            <button onclick="search()" id="searchBtn">검색</button>
+            <button onclick="search()" id="searchBtn">전송</button>
         </div>
-        
-        <div id="result"></div>
     </div>
     
     <script>
@@ -178,6 +230,64 @@
             }
         }
         
+        function scrollToBottom() {
+            const chatContainer = document.getElementById('chatContainer');
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+        
+        function addMessage(role, content, sources = null) {
+            const chatContainer = document.getElementById('chatContainer');
+            
+            // 첫 메시지면 empty state 제거
+            const emptyState = chatContainer.querySelector('.empty-state');
+            if (emptyState) {
+                emptyState.remove();
+            }
+            
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${role}`;
+            
+            let sourcesHtml = '';
+            if (sources && sources.length > 0) {
+                sourcesHtml = `
+                    <div class="sources">
+                        📄 참고: ${sources.map(s => s.title).join(', ')}
+                    </div>
+                `;
+            }
+            
+            messageDiv.innerHTML = `
+                <div class="message-content">
+                    ${content}
+                    ${sourcesHtml}
+                </div>
+            `;
+            
+            chatContainer.appendChild(messageDiv);
+            scrollToBottom();
+        }
+        
+        function showLoading() {
+            const chatContainer = document.getElementById('chatContainer');
+            const loadingDiv = document.createElement('div');
+            loadingDiv.className = 'message assistant';
+            loadingDiv.id = 'loading-message';
+            loadingDiv.innerHTML = `
+                <div class="message-content">
+                    <div class="loading">💭 답변 생각중...</div>
+                </div>
+            `;
+            chatContainer.appendChild(loadingDiv);
+            scrollToBottom();
+        }
+        
+        function removeLoading() {
+            const loadingMsg = document.getElementById('loading-message');
+            if (loadingMsg) {
+                loadingMsg.remove();
+            }
+        }
+        
         async function clearSession() {
             if (!sessionId) return;
             
@@ -190,16 +300,23 @@
                 
                 sessionId = null;
                 updateSessionStatus();
-                document.getElementById('result').innerHTML = '';
-                alert('대화가 초기화되었습니다');
+                
+                // 채팅 화면 초기화
+                const chatContainer = document.getElementById('chatContainer');
+                chatContainer.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">💬</div>
+                        <div>질문을 입력하면 대화가 시작됩니다</div>
+                    </div>
+                `;
             } catch (error) {
                 alert('초기화 실패: ' + error.message);
             }
         }
         
         async function search() {
-            const question = document.getElementById('question').value.trim();
-            const resultDiv = document.getElementById('result');
+            const questionInput = document.getElementById('question');
+            const question = questionInput.value.trim();
             const searchBtn = document.getElementById('searchBtn');
             
             if (!question) {
@@ -207,8 +324,14 @@
                 return;
             }
             
+            // 사용자 메시지 추가
+            addMessage('user', question);
+            
+            // 입력창 초기화
+            questionInput.value = '';
+            
             searchBtn.disabled = true;
-            resultDiv.innerHTML = '<div class="loading">🔍 검색 중...</div>';
+            showLoading();
             
             try {
                 const response = await fetch(`${API_URL}/query`, {
@@ -234,28 +357,17 @@
                     updateSessionStatus();
                 }
                 
-                resultDiv.innerHTML = `
-                    <div class="result">
-                        <div class="answer">${data.answer}</div>
-                        <div class="sources">
-                            <h3>📄 참고 문서</h3>
-                            ${data.sources.map(s => `
-                                <div class="source-item">📌 ${s.title}</div>
-                            `).join('')}
-                        </div>
-                    </div>
-                `;
+                removeLoading();
                 
-                // 입력창 초기화
-                document.getElementById('question').value = '';
+                // AI 답변 추가
+                addMessage('assistant', data.answer, data.sources);
+                
             } catch (error) {
-                resultDiv.innerHTML = `
-                    <div class="error">
-                        ❌ 오류: ${error.message}
-                    </div>
-                `;
+                removeLoading();
+                addMessage('assistant', `❌ 오류: ${error.message}`);
             } finally {
                 searchBtn.disabled = false;
+                questionInput.focus();
             }
         }
     </script>
