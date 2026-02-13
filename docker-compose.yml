@@ -10,3 +10,14 @@ services:
       - ./chroma_db:/app/chroma_db
       - ./index.html:/app/index.html
     restart: unless-stopped
+
+  scheduler:
+    build: .
+    command: python scheduler.py
+    env_file:
+      - .env
+    volumes:
+      - ./chroma_db:/app/chroma_db
+    restart: unless-stopped
+    depends_on:
+      - api
