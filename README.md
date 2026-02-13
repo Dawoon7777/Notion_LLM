@@ -7,15 +7,18 @@ Notion 페이지를 ChromaDB에 인덱싱하고, 자연어 질문으로 검색�
 - 📖 여러 Notion 페이지 자동 인덱싱
 - 🔄 페이지 업데이트 및 삭제 지원
 - 🔍 벡터 검색을 통한 관련 문서 찾기
+- 🌐 **DuckDuckGo 웹 검색 통합**
 - 🤖 Ollama를 활용한 컨텍스트 기반 답변 생성
 - 💾 ChromaDB를 사용한 로컬 벡터 저장소
-- 🌐 REST API 및 CLI 인터페이스 제공
+- 🌐 REST API 및 웹 UI 제공
+- 🔧 **Open WebUI 통합 지원**
 
 ## 🛠 환경 요구사항
 
 - **Docker** & **Docker Compose**
 - **Ollama**: 로컬 또는 원격 서버에 설치 및 실행 중
 - **Notion**: Integration Token 및 접근 권한
+- **(선택) Open WebUI**: 채팅 UI로 사용
 
 ## 📦 설치 방법
 
@@ -60,7 +63,60 @@ https://www.notion.so/My-Page-abc123def456?v=...
 
 ## 🚀 사용 방법
 
-### Docker로 실행 (권장)
+### 방법 1: API 서버 + 웹 UI (권장)
+
+**1. 서버 시작**
+```bash
+# Windows
+start.bat
+
+# Linux/Mac
+docker-compose up -d
+```
+
+**2. 웹 브라우저 접속**
+- 웹 UI: http://localhost:8000
+- API 문서: http://localhost:8000/docs
+
+**3. 서버 관리**
+```bash
+# 중지
+stop.bat  # 또는 docker-compose down
+
+# 재시작
+restart.bat  # 또는 docker-compose restart
+```
+
+### 방법 2: Open WebUI 통합 (추천)
+
+**1. Open WebUI 설치 및 실행**
+```bash
+docker run -d -p 3000:8080 \
+  -e OLLAMA_BASE_URL=http://192.168.50.192:11434 \
+  -v open-webui:/app/backend/data \
+  --name open-webui \
+  --restart always \
+  ghcr.io/open-webui/open-webui:main
+```
+
+**2. Notion RAG API 시작**
+```bash
+docker-compose up -d
+```
+
+**3. Open WebUI에서 Function 등록**
+1. http://localhost:3000 접속
+2. Settings (⚙️) → Admin Panel → Functions
+3. "+" 버튼 클릭 → "Create New Function"
+4. `notion_rag_tool.py` 파일 내용 복사 & 붙여넣기
+5. Save 후 활성화
+
+**4. 채팅에서 사용**
+```
+Notion에서 "프로젝트 목표"를 검색해줘
+```
+
+### 방법 3: CLI 사용
 
 **1. 이미지 빌드**
 ```bash
@@ -70,49 +126,28 @@ docker-compose build
 **2. 페이지 인덱싱**
 ```bash
 # 단일 페이지
-docker-compose run --rm notion-rag python main.py index <page_id>
+docker-compose run --rm api python main.py index <page_id>
 
 # 여러 페이지
-docker-compose run --rm notion-rag python main.py index <page_id1> <page_id2> <page_id3>
+docker-compose run --rm api python main.py index <page_id1> <page_id2>
 
 # .env의 기본 페이지
-docker-compose run --rm notion-rag python main.py index
+docker-compose run --rm api python main.py index
 ```
 
 **3. 페이지 업데이트**
 ```bash
-# Notion에서 수정한 페이지 재인덱싱
-docker-compose run --rm notion-rag python main.py update <page_id>
+docker-compose run --rm api python main.py update <page_id>
 ```
 
 **4. 페이지 삭제**
 ```bash
-# 벡터 DB에서 페이지 제거
-docker-compose run --rm notion-rag python main.py delete <page_id>
+docker-compose run --rm api python main.py delete <page_id>
 ```
 
 **5. 질문하기**
 ```bash
-docker-compose run --rm notion-rag python main.py query "프로젝트의 주요 목표는?"
-```
-
-### 직접 실행
-
-```bash
-# 의존성 설치
-pip install -r requirements.txt
-
-# 인덱싱
-python main.py index <page_id>
-
-# 업데이트
-python main.py update <page_id>
-
-# 삭제
-python main.py delete <page_id>
-
-# 질문
-python main.py query "질문 내용"
+docker-compose run --rm api python main.py query "프로젝트의 주요 목표는?"
 ```
 
 ## 📋 사용 예시
@@ -120,7 +155,7 @@ python main.py query "질문 내용"
 ### 1. 여러 페이지 인덱싱
 
 ```bash
-docker-compose run --rm notion-rag python main.py index \
+docker-compose run --rm api python main.py index \
   abc123def456 \
   def789ghi012 \
   ghi345jkl678
@@ -141,7 +176,7 @@ docker-compose run --rm notion-rag python main.py index \
 ### 2. 페이지 업데이트
 
 ```bash
-docker-compose run --rm notion-rag python main.py update abc123def456
+docker-compose run --rm api python main.py update abc123def456
 ```
 
 출력:
@@ -159,7 +194,7 @@ docker-compose run --rm notion-rag python main.py update abc123def456
 ### 3. 페이지 삭제
 
 ```bash
-docker-compose run --rm notion-rag python main.py delete abc123def456
+docker-compose run --rm api python main.py delete abc123def456
 ```
 
 출력:
@@ -174,7 +209,7 @@ docker-compose run --rm notion-rag python main.py delete abc123def456
 ### 4. 질문하기
 
 ```bash
-docker-compose run --rm notion-rag python main.py query "이 프로젝트에서 사용하는 기술은?"
+docker-compose run --rm api python main.py query "이 프로젝트에서 사용하는 기술은?"
 ```
 
 출력:
@@ -207,6 +242,8 @@ ChromaDB (벡터 저장)
     ↓
 사용자 질문 → 벡터 검색 → 관련 문서 추출
     ↓
+WebSearcher (DuckDuckGo 웹 검색)
+    ↓
 OllamaQA (컨텍스트 기반 답변 생성)
     ↓
 답변 반환
@@ -216,10 +253,17 @@ OllamaQA (컨텍스트 기반 답변 생성)
 
 ```
 .
-├── main.py                 # RAG 시스템 메인 코드
+├── main.py                 # RAG 시스템 핵심 로직
+├── api.py                  # FastAPI REST API 서버
+├── config.py               # 환경변수 중앙 관리
+├── index.html              # 웹 UI 인터페이스
+├── notion_rag_tool.py      # Open WebUI Function
 ├── requirements.txt        # Python 의존성
 ├── Dockerfile             # Docker 이미지 설정
 ├── docker-compose.yml     # Docker Compose 설정
+├── start.bat              # 서버 시작 스크립트
+├── stop.bat               # 서버 중지 스크립트
+├── restart.bat            # 서버 재시작 스크립트
 ├── .env                   # 환경 변수 (Git 제외)
 ├── .env.example          # 환경 변수 템플릿
 └── chroma_db/            # ChromaDB 저장소 (자동 생성)

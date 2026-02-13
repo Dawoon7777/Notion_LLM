@@ -1,20 +1,10 @@
-import os
-from dotenv import load_dotenv
-from notion_client import Client
 import requests
 import chromadb
 from chromadb.config import Settings
 from typing import List, Dict
 import hashlib
 from duckduckgo_search import DDGS
-
-load_dotenv()
-
-NOTION_TOKEN = os.getenv("NOTION_TOKEN")
-NOTION_PAGE_ID = os.getenv("NOTION_PAGE_ID")
-OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL")
-
-notion = Client(auth=NOTION_TOKEN)
+from config import notion, NOTION_PAGE_ID, OLLAMA_BASE_URL
 
 
 class NotionPageExtractor:
@@ -320,9 +310,12 @@ class WebSearcher:
                     "url": result.get("href", "")
                 })
             
+            if not results:
+                print(f"⚠️ 웹 검색 결과 없음: {query}")
+            
             return results
         except Exception as e:
-            print(f"웹 검색 오류: {e}")
+            print(f"❌ 웹 검색 오류: {e}")
             return []
 
 

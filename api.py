@@ -1,21 +1,11 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
-from typing import List, Optional
-import os
-from dotenv import load_dotenv
-from notion_client import Client
-import requests
-import chromadb
-from typing import Dict
+from typing import List, Optional, Dict
 import uuid
-
-load_dotenv()
-
-NOTION_TOKEN = os.getenv("NOTION_TOKEN")
-OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL")
-
-notion = Client(auth=NOTION_TOKEN)
+from config import notion, OLLAMA_BASE_URL
+from main import NotionPageExtractor, VectorStoreManager, OllamaQA, WebSearcher
 
 app = FastAPI(title="Notion RAG API")
 
@@ -54,12 +44,13 @@ class QueryResponse(BaseModel):
     session_id: str
 
 
-# main.py의 클래스들 임포트
-from main import NotionPageExtractor, VectorStoreManager, OllamaQA, WebSearcher
-
-
 @app.get("/")
 def root():
+    """index.html 서빙"""
+    return FileResponse("index.html")
+
+@app.get("/health")
+def health():
     return {"message": "Notion RAG API", "status": "running"}
 
 
