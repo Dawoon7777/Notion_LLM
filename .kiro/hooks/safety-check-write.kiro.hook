@@ -1,0 +1,16 @@
+{
+  "enabled": true,
+  "name": "Safety Check Before Write",
+  "description": "파일 쓰기 작업 전 기존 기능에 영향이 없는지 확인",
+  "version": "1",
+  "when": {
+    "type": "preToolUse",
+    "toolTypes": [
+      "write"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "이 파일 수정이 기존 기능을 망가뜨리거나 중요한 코드를 삭제하지 않는지 빠르게 확인해줘. 문제없으면 바로 진행해."
+  }
+}

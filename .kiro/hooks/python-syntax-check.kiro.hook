@@ -1,0 +1,16 @@
+{
+  "enabled": true,
+  "name": "Python Syntax Check",
+  "description": "Python 파일 저장 시 자동으로 문법 오류 및 import 누락 체크",
+  "version": "1",
+  "when": {
+    "type": "fileEdited",
+    "patterns": [
+      "*.py"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "방금 저장한 Python 파일에 문법 오류, import 누락, 또는 명백한 버그가 있는지 빠르게 확인하고, 문제가 있으면 자동으로 고쳐줘"
+  }
+}

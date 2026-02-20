@@ -1,0 +1,19 @@
+{
+  "enabled": true,
+  "name": "Validate Environment Config",
+  "description": "Docker 관련 파일 수정 시 .env 파일의 필수 변수 검증",
+  "version": "1",
+  "when": {
+    "type": "fileEdited",
+    "patterns": [
+      "docker-compose.yml",
+      "Dockerfile",
+      ".env",
+      ".env.example"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": ".env 파일에 NOTION_TOKEN, OLLAMA_BASE_URL이 제대로 설정되어 있는지 확인하고, 누락되었거나 형식이 잘못되었으면 알려줘"
+  }
+}

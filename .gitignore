@@ -42,3 +42,19 @@ Thumbs.db
 
 # 로그 파일
 *.log
+
+# Docker
+docker-compose.override.yml
+
+# 테스트
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Jupyter Notebook
+.ipynb_checkpoints/
+
+# 임시 파일
+*.tmp
+*.bak
+*.swp
