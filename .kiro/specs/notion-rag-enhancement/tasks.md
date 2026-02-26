@@ -6,12 +6,12 @@
 
 ## 태스크
 
-- [ ] 1. 프로젝트 구조 표준화 및 ConfigManager 구현
-  - [ ] 1.1 `src/`, `src/core/`, `src/api/`, `src/utils/` 디렉토리에 `__init__.py` 생성하여 Python 패키지 구조 완성
+- [-] 1. 프로젝트 구조 표준화 및 ConfigManager 구현
+  - [x] 1.1 `src/`, `src/core/`, `src/api/`, `src/utils/` 디렉토리에 `__init__.py` 생성하여 Python 패키지 구조 완성
     - 각 `__init__.py`에 모듈 임포트 경로 설정
     - _Requirements: 1.1, 1.4_
 
-  - [ ] 1.2 `src/core/config.py`에 ConfigManager 구현
+  - [x] 1.2 `src/core/config.py`에 ConfigManager 구현
     - `load_config()` 함수: 환경 변수 로드 및 필수 값(NOTION_TOKEN, OLLAMA_BASE_URL) 검증
     - 누락 시 `ValueError` + 한글 에러 메시지 (변수명 포함)
     - `OLLAMA_NUM_CTX`(기본: 32768), `OLLAMA_KEEP_ALIVE`(기본: -1), `OLLAMA_TIMEOUT`(기본: 120) 등 기본값 설정
@@ -32,15 +32,15 @@
     - 루트 `config.py` 제거 (또는 `src.core.config` 임포트 래퍼로 변환)
     - _Requirements: 1.2, 1.3_
 
-  - [ ] 1.6 `.env.example` 파일에 신규 환경 변수 추가
+  - [x] 1.6 `.env.example` 파일에 신규 환경 변수 추가
     - 모든 설정 가능한 환경 변수와 기본값 주석 포함
     - _Requirements: 4.3, 5.5, 7.2_
 
 - [ ] 2. 체크포인트 - 프로젝트 구조 검증
   - 모든 테스트 통과 확인, 질문이 있으면 사용자에게 문의
 
-- [ ] 3. IncrementalSyncEngine 구현
-  - [ ] 3.1 `src/core/incremental_sync.py`에 IncrementalSyncEngine 클래스 구현
+- [x] 3. IncrementalSyncEngine 구현
+  - [x] 3.1 `src/core/incremental_sync.py`에 IncrementalSyncEngine 클래스 구현
     - `SyncResult` 데이터클래스 정의 (added, modified, deleted, elapsed_seconds)
     - `load_state()`: sync_state.json 로드, 파일 없거나 손상 시 빈 dict 반환
     - `save_state()`: 동기화 상태를 sync_state.json에 저장
@@ -48,7 +48,7 @@
     - `sync()`: 증분 동기화 실행 (상태 파일 없으면 전체 재인덱싱)
     - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6_
 
-  - [ ] 3.2 `src/core/notion_extractor.py`에 `get_pages_with_timestamps()` 메서드 추가
+  - [x] 3.2 `src/core/notion_extractor.py`에 `get_pages_with_timestamps()` 메서드 추가
     - 모든 페이지의 `{page_id: last_edited_time}` 매핑 반환
     - 기존 `search_all_pages()`, `get_page_content()` 유지
     - _Requirements: 2.1, 2.2_
@@ -65,8 +65,8 @@
     - **Property 4: 손상된 상태 파일 처리**
     - **Validates: Requirements 2.6**
 
-- [ ] 4. EmbeddingProcessor 구현
-  - [ ] 4.1 `src/core/embedding_processor.py` 생성
+- [-] 4. EmbeddingProcessor 구현
+  - [x] 4.1 `src/core/embedding_processor.py` 생성
     - `EmbeddingResult` 데이터클래스 정의
     - `EmbeddingProcessor` 클래스: asyncio + aiohttp 기반 병렬 임베딩
     - `embed_texts()`: Semaphore로 동시 요청 수 제한, 병렬 처리

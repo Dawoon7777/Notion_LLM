@@ -43,6 +43,38 @@ class NotionPageExtractor:
         except Exception as e:
             print(f"페이지 검색 오류: {e}")
             return []
+    def get_pages_with_timestamps(self) -> Dict[str, str]:
+        """
+        모든 페이지의 {page_id: last_edited_time} 매핑 반환
+
+        Returns:
+            Dict[str, str]: 페이지 ID와 마지막 수정 시간 매핑
+        """
+        try:
+            pages_timestamps = {}
+            has_more = True
+            start_cursor = None
+
+            while has_more:
+                params = {"filter": {"property": "object", "value": "page"}}
+                if start_cursor:
+                    params["start_cursor"] = start_cursor
+
+                response = self.notion.search(**params)
+
+                for page in response.get("results", []):
+                    page_id = page["id"]
+                    last_edited_time = page.get("last_edited_time", "")
+                    pages_timestamps[page_id] = last_edited_time
+
+                has_more = response.get("has_more", False)
+                start_cursor = response.get("next_cursor")
+
+            return pages_timestamps
+
+        except Exception as e:
+            print(f"❌ Notion API 오류: {e}")
+            return {}
     
     def _get_page_title_from_search(self, page):
         """검색 결과에서 페이지 제목 추출"""
