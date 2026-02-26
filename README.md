@@ -2,8 +2,11 @@
 
 Notion 페이지를 ChromaDB에 인덱싱하고, 자연어 질문으로 검색 및 수정할 수 있는 RAG(Retrieval-Augmented Generation) 시스템입니다.
 
+> **🚧 현재 v2.0 고도화 작업 진행 중** - 증분 동기화, 병렬 임베딩, 리랭킹 등 엔터프라이즈 기능 추가 중입니다.
+
 ## ✨ 주요 기능
 
+### 현재 버전 (v1.0)
 - 📖 **Notion 페이지 자동 인덱싱** - 워크스페이스의 모든 페이지를 벡터 DB에 저장
 - 🔄 **페이지 업데이트 및 삭제** - 변경된 내용 자동 반영
 - ✍️ **페이지 내용 수정 및 생성** - API를 통한 Notion 페이지 직접 수정
@@ -14,6 +17,22 @@ Notion 페이지를 ChromaDB에 인덱싱하고, 자연어 질문으로 검색 �
 - 🌐 **REST API 및 웹 UI** - 다양한 인터페이스 제공
 - 🔧 **Open WebUI 통합** - 채팅 UI로 사용 가능
 - ⏰ **자동 인덱싱 스케줄러** - 매일 자동으로 페이지 업데이트
+
+### 🚀 v2.0 고도화 (진행 중 - 30% 완료)
+
+#### ✅ 완료된 기능
+- **Python 패키지 구조 표준화** - `src/` 중심의 모듈화된 아키텍처
+- **ConfigManager** - 환경 변수 중앙 관리 및 검증
+- **IncrementalSyncEngine** - 변경된 페이지만 선별적으로 인덱싱 (시간 절약)
+- **EmbeddingProcessor** - asyncio 기반 병렬 임베딩 (8배 속도 향상)
+- **VectorStoreManager** - 개선된 ChromaDB 관리
+
+#### 🚧 개발 예정
+- **Reranker** - bge-reranker-v2-m3 기반 검색 결과 재정렬 (정확도 향상)
+- **ContextRouter** - LLM 기반 질문 의도 분류 및 정보 소스 라우팅
+- **QAEngine** - 통합 질의응답 파이프라인
+- **확장된 API** - 증분 동기화 수동 트리거, 상태 조회 엔드포인트
+- **자동 스케줄러 통합** - Incremental Sync 자동 실행
 
 ## 📁 프로젝트 구조
 
@@ -308,11 +327,26 @@ docker-compose run --rm api python main.py query "질문 내용"
 
 ## 🔧 환경변수
 
+### 필수 변수
 | 변수 | 설명 | 예시 |
 |------|------|------|
 | `NOTION_TOKEN` | Notion Integration Token | `secret_xxxxx` |
-| `NOTION_PAGE_ID` | 기본 페이지 ID (선택) | `abc123def456` |
 | `OLLAMA_BASE_URL` | Ollama 서버 URL | `http://192.168.50.192:11434` |
+
+### 선택 변수
+| 변수 | 설명 | 기본값 |
+|------|------|--------|
+| `NOTION_PAGE_ID` | 기본 페이지 ID | - |
+| `OLLAMA_NUM_CTX` | LLM 컨텍스트 길이 | `32768` |
+| `OLLAMA_KEEP_ALIVE` | 모델 상주 설정 | `-1` (항상 유지) |
+| `OLLAMA_TIMEOUT` | API 타임아웃 (초) | `120` |
+| `OLLAMA_MAX_RETRIES` | 최대 재시도 횟수 | `3` |
+| `EMBEDDING_CONCURRENCY` | 동시 임베딩 요청 수 | `8` |
+| `EMBEDDING_MAX_RETRIES` | 임베딩 재시도 횟수 | `3` |
+| `SEARCH_TOP_K` | 초기 검색 결과 수 | `20` |
+| `RERANK_TOP_N` | 리랭킹 후 최종 결과 수 | `5` |
+| `SYNC_INTERVAL_MINUTES` | 자동 동기화 주기 (분) | `60` |
+| `SYNC_STATE_PATH` | 동기화 상태 파일 경로 | `./sync_state.json` |
 
 ## ⏰ 자동 스케줄러
 
