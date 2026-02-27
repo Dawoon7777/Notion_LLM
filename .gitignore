@@ -4,6 +4,9 @@
 # ChromaDB
 chroma_db/
 
+# 동기화 상태
+sync_state.json
+
 # Python
 __pycache__/
 *.py[cod]

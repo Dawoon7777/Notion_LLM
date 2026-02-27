@@ -2,7 +2,7 @@
 
 Notion 페이지를 ChromaDB에 인덱싱하고, 자연어 질문으로 검색 및 수정할 수 있는 RAG(Retrieval-Augmented Generation) 시스템입니다.
 
-> **🚧 현재 v2.0 고도화 작업 진행 중** - 증분 동기화, 병렬 임베딩, 리랭킹 등 엔터프라이즈 기능 추가 중입니다.
+> **✅ v2.0 고도화 완료** - 증분 동기화, 병렬 임베딩, 리랭킹, Context Routing 등 엔터프라이즈 기능이 추가되었습니다.
 
 ## ✨ 주요 기능
 
@@ -18,44 +18,53 @@ Notion 페이지를 ChromaDB에 인덱싱하고, 자연어 질문으로 검색 �
 - 🔧 **Open WebUI 통합** - 채팅 UI로 사용 가능
 - ⏰ **자동 인덱싱 스케줄러** - 매일 자동으로 페이지 업데이트
 
-### 🚀 v2.0 고도화 (진행 중 - 30% 완료)
+### 🚀 v2.0 고도화 기능
 
-#### ✅ 완료된 기능
+#### ✅ 핵심 인프라
 - **Python 패키지 구조 표준화** - `src/` 중심의 모듈화된 아키텍처
 - **ConfigManager** - 환경 변수 중앙 관리 및 검증
 - **IncrementalSyncEngine** - 변경된 페이지만 선별적으로 인덱싱 (시간 절약)
-- **EmbeddingProcessor** - asyncio 기반 병렬 임베딩 (8배 속도 향상)
-- **VectorStoreManager** - 개선된 ChromaDB 관리
+- **EmbeddingProcessor** - asyncio 기반 병렬 임베딩 (최대 8배 속도 향상)
+- **VectorStoreManager** - 개선된 ChromaDB 관리 및 통계 기능
 
-#### 🚧 개발 예정
-- **Reranker** - bge-reranker-v2-m3 기반 검색 결과 재정렬 (정확도 향상)
+#### ✅ 고급 검색 기능
+- **Reranker** - LLM 기반 검색 결과 재정렬 (정확도 향상)
 - **ContextRouter** - LLM 기반 질문 의도 분류 및 정보 소스 라우팅
-- **QAEngine** - 통합 질의응답 파이프라인
-- **확장된 API** - 증분 동기화 수동 트리거, 상태 조회 엔드포인트
-- **자동 스케줄러 통합** - Incremental Sync 자동 실행
+- **QAEngine** - 통합 질의응답 파이프라인 (Notion + 웹 검색 + 일반 지식)
+
+#### ✅ API 및 자동화
+- **확장된 FastAPI** - 증분 동기화 수동 트리거, 상태 조회 엔드포인트
+- **APScheduler 통합** - 주기적 자동 동기화 (설정 가능한 간격)
+- **리랭킹 옵션** - API 요청 시 리랭킹 사용 여부 선택 가능
 
 ## 📁 프로젝트 구조
 
 ```
 Notion_LLM/
-├── src/                    # 소스 코드
+├── src/                    # 소스 코드 (v2.0 모듈화)
 │   ├── core/              # 핵심 로직
 │   │   ├── config.py      # 환경변수 관리 및 검증
 │   │   ├── notion_extractor.py  # Notion API 연동
-│   │   └── scheduler.py   # 자동 업데이트 스케줄러
+│   │   ├── vector_store.py      # ChromaDB 관리
+│   │   ├── embedding_processor.py  # 병렬 임베딩 처리
+│   │   ├── incremental_sync.py  # 증분 동기화 엔진
+│   │   ├── reranker.py    # LLM 기반 리랭킹
+│   │   ├── context_router.py  # 질문 의도 분류
+│   │   ├── qa_engine.py   # 통합 질의응답 파이프라인
+│   │   └── scheduler.py   # APScheduler 자동 동기화
 │   ├── api/               # API 서버
-│   │   └── server.py      # FastAPI REST API
+│   │   └── server.py      # FastAPI REST API (v2.0)
 │   └── utils/             # 유틸리티
-│       └── notion_rag_tool.py  # Open WebUI Function
+│       ├── notion_rag_tool.py  # Open WebUI Function
+│       └── web_searcher.py     # DuckDuckGo 웹 검색
 ├── scripts/               # 실행 스크립트
 │   ├── start.bat          # 서버 시작
 │   ├── stop.bat           # 서버 중지
 │   ├── restart.bat        # 서버 재시작
 │   └── logs.bat           # 스케줄러 로그 확인
-├── main.py               # CLI 진입점
-├── api.py                # API 서버 진입점
-├── config.py             # 설정 진입점
-├── scheduler.py          # 스케줄러 진입점
+├── main.py               # CLI 진입점 (래퍼)
+├── api.py                # API 서버 진입점 (래퍼)
+├── scheduler.py          # 스케줄러 진입점 (래퍼)
 ├── index.html            # 웹 UI
 ├── requirements.txt      # Python 의존성
 ├── Dockerfile
@@ -210,25 +219,27 @@ docker-compose run --rm api python main.py query "질문 내용"
 ```
 
 #### `POST /query`
-자연어 질문으로 검색 및 답변 생성
+자연어 질문으로 검색 및 답변 생성 (v2.0 업그레이드)
 
 **요청:**
 ```json
 {
   "question": "프로젝트의 주요 목표는?",
   "session_id": "optional-session-id",
-  "n_results": 3,
-  "use_web_search": true
+  "use_reranking": true
 }
 ```
 
 **응답:**
 ```json
 {
+  "status": "success",
   "answer": "AI가 생성한 답변...",
   "sources": [
-    {"title": "📄 관련 문서", "page_id": "xxx"}
+    {"title": "관련 문서", "page_id": "xxx", "type": "notion"}
   ],
+  "source_type": "notion",
+  "category": "INTERNAL_DOC",
   "session_id": "session-id"
 }
 ```
@@ -279,6 +290,33 @@ docker-compose run --rm api python main.py query "질문 내용"
 
 ### 관리 (Management)
 
+#### `POST /sync` (v2.0 신규)
+증분 동기화 수동 트리거
+
+**응답:**
+```json
+{
+  "status": "success",
+  "message": "동기화 완료: 추가 3, 수정 2, 삭제 1",
+  "added": 3,
+  "modified": 2,
+  "deleted": 1,
+  "elapsed_seconds": 12.5
+}
+```
+
+#### `GET /sync/status` (v2.0 신규)
+마지막 동기화 상태 조회
+
+**응답:**
+```json
+{
+  "status": "success",
+  "last_sync_time": "2026-02-27T10:30:00Z",
+  "total_pages": 42
+}
+```
+
 #### `POST /index`
 특정 페이지 인덱싱
 
@@ -313,15 +351,18 @@ docker-compose run --rm api python main.py query "질문 내용"
 ```
 
 #### `GET /health`
-서버 상태 확인
+서버 상태 확인 (v2.0 업그레이드)
 
 **응답:**
 ```json
 {
-  "status": "healthy",
+  "status": "success",
+  "message": "Notion RAG API v2.0 실행 중",
   "ollama": "http://192.168.50.192:11434",
-  "notion": "connected",
-  "active_sessions": 5
+  "notion": "연결됨",
+  "active_sessions": 5,
+  "total_chunks": 1234,
+  "unique_pages": 42
 }
 ```
 
@@ -348,24 +389,24 @@ docker-compose run --rm api python main.py query "질문 내용"
 | `SYNC_INTERVAL_MINUTES` | 자동 동기화 주기 (분) | `60` |
 | `SYNC_STATE_PATH` | 동기화 상태 파일 경로 | `./sync_state.json` |
 
-## ⏰ 자동 스케줄러
+## ⏰ 자동 스케줄러 (v2.0 업그레이드)
 
-스케줄러는 백그라운드에서 자동으로 실행되며, 매일 오전 3시에 모든 페이지를 업데이트합니다.
+스케줄러는 백그라운드에서 자동으로 실행되며, 설정된 주기마다 증분 동기화를 수행합니다.
 
-### 스케줄 변경
+### 주기 설정
 
-`scheduler.py` 파일 수정:
+`.env` 파일에서 설정:
 
-```python
-# 매일 오전 3시 (기본)
-schedule.every().day.at("03:00").do(auto_update_pages)
-
-# 매 시간마다
-schedule.every().hour.do(auto_update_pages)
-
-# 30분마다
-schedule.every(30).minutes.do(auto_update_pages)
+```env
+SYNC_INTERVAL_MINUTES=60  # 60분마다 (기본값)
 ```
+
+### 동작 방식
+
+1. **변경 감지**: Notion API의 `last_edited_time` 비교
+2. **선별 인덱싱**: 추가/수정/삭제된 페이지만 처리
+3. **상태 저장**: `sync_state.json`에 동기화 상태 기록
+4. **자동 복구**: 상태 파일 손상 시 전체 재인덱싱
 
 ### 로그 확인
 
@@ -377,20 +418,39 @@ scripts\logs.bat
 docker-compose logs -f scheduler
 ```
 
-## 🏗 아키텍처
+## 🏗 아키텍처 (v2.0)
 
 ```
 사용자 질문
     ↓
-VectorStoreManager (벡터 검색)
+ContextRouter (질문 의도 분류)
     ↓
-ChromaDB → 관련 Notion 문서 추출
+┌─────────────────┬──────────────────┐
+│  Notion 검색    │   웹 검색        │
+│  (VectorStore)  │  (DuckDuckGo)    │
+└─────────────────┴──────────────────┘
     ↓
-WebSearcher (DuckDuckGo) → 웹 검색 결과
+Reranker (LLM 기반 재정렬)
     ↓
-OllamaQA (AI 답변 생성)
+QAEngine (통합 답변 생성)
     ↓
-통합 답변 반환
+최종 답변 반환
+```
+
+### 증분 동기화 흐름
+
+```
+Notion API
+    ↓
+get_pages_with_timestamps()
+    ↓
+IncrementalSyncEngine (변경 감지)
+    ↓
+EmbeddingProcessor (병렬 임베딩)
+    ↓
+VectorStoreManager (ChromaDB 저장)
+    ↓
+sync_state.json 업데이트
 ```
 
 ## 🔧 커스터마이징
@@ -494,7 +554,8 @@ curl -X POST http://localhost:8000/create-page \
 - **LLM**: Ollama (llama3.3:70b)
 - **Web Search**: DuckDuckGo
 - **Notion API**: notion-client
-- **Scheduler**: schedule
+- **Scheduler**: APScheduler
+- **Async**: asyncio, aiohttp
 - **Frontend**: HTML/CSS/JavaScript
 
 ## 📝 라이선스
