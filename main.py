@@ -8,6 +8,9 @@ import sys
 from src.core.config import load_config, get_notion_client
 from src.core.notion_extractor import NotionPageExtractor
 from src.core.vector_store import VectorStoreManager
+from src.core.embedding_processor import EmbeddingProcessor
+from src.core.agent import NotionAgent
+from src.utils.web_searcher import WebSearcher
 
 
 def main():
@@ -19,6 +22,7 @@ def main():
         print("  전체 인덱싱: python main.py index-all")
         print("  개별 인덱싱: python main.py index <page_id1> <page_id2> ...")
         print("  페이지 삭제: python main.py delete <page_id1> <page_id2> ...")
+        print("  Agent 질문: python main.py agent \"질문 내용\"")
         print("\n💡 고급 기능:")
         print("  API 서버: python api.py")
         print("  자동 동기화: python scheduler.py")
@@ -33,7 +37,49 @@ def main():
     extractor = NotionPageExtractor(notion)
     vector_store = VectorStoreManager()
     
-    if command == "list":
+    if command == "agent":
+        # Agent 모드
+        if len(sys.argv) < 3:
+            print("❌ 질문을 입력해주세요.")
+            print('예시: python main.py agent "프로젝트 목표에 새로운 항목 추가해줘"')
+            return
+        
+        question = sys.argv[2]
+        
+        # Agent 초기화
+        embedding_processor = EmbeddingProcessor(
+            config["OLLAMA_BASE_URL"],
+            concurrency=config["EMBEDDING_CONCURRENCY"],
+            max_retries=config["EMBEDDING_MAX_RETRIES"]
+        )
+        web_searcher = WebSearcher()
+        agent = NotionAgent(extractor, vector_store, embedding_processor, web_searcher, config)
+        
+        print(f"🤖 Agent 모드로 질문 처리 중...\n")
+        
+        # Agent 실행
+        result = agent.run(question, max_iterations=5)
+        
+        print("\n" + "="*60)
+        print("📋 최종 답변:")
+        print("="*60)
+        print(result.answer)
+        
+        if result.sources:
+            print("\n📚 참고 출처:")
+            for i, source in enumerate(result.sources, 1):
+                if source.get("type") == "notion":
+                    print(f"{i}. [{source.get('title')}] (Notion)")
+                else:
+                    print(f"{i}. [{source.get('title')}] ({source.get('url')})")
+        
+        print("\n🔧 실행된 도구:")
+        for i, action in enumerate(result.actions, 1):
+            print(f"{i}. {action.tool}: {action.tool_input[:50]}...")
+        
+        return
+    
+    elif command == "list":
         print("📋 Notion 페이지 목록 조회 중...\n")
         
         pages = extractor.search_all_pages()
@@ -104,7 +150,7 @@ def main():
     
     else:
         print(f"❌ 알 수 없는 명령: {command}")
-        print("사용 가능한 명령: list, index-all, index, delete")
+        print("사용 가능한 명령: list, index-all, index, delete, agent")
 
 
 if __name__ == "__main__":

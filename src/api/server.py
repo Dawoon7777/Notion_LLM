@@ -20,6 +20,7 @@ from src.core.incremental_sync import IncrementalSyncEngine
 from src.core.reranker import Reranker
 from src.core.context_router import ContextRouter
 from src.core.qa_engine import QAEngine
+from src.core.agent import NotionAgent
 from src.utils.web_searcher import WebSearcher
 
 # 설정 로드
@@ -38,6 +39,9 @@ reranker = Reranker(config["OLLAMA_BASE_URL"])
 context_router = ContextRouter(config["OLLAMA_BASE_URL"])
 web_searcher = WebSearcher()
 qa_engine = QAEngine(vector_store, reranker, context_router, web_searcher, config)
+
+# Agent 초기화
+agent = NotionAgent(extractor, vector_store, embedding_processor, web_searcher, config)
 
 # 증분 동기화 엔진
 sync_engine = IncrementalSyncEngine(
@@ -70,6 +74,11 @@ class QueryRequest(BaseModel):
     use_reranking: Optional[bool] = True
 
 
+class AgentQueryRequest(BaseModel):
+    question: str
+    max_iterations: Optional[int] = 5
+
+
 class QueryResponse(BaseModel):
     status: str
     answer: str
@@ -77,6 +86,13 @@ class QueryResponse(BaseModel):
     source_type: str
     category: str
     session_id: str
+
+
+class AgentQueryResponse(BaseModel):
+    status: str
+    answer: str
+    sources: List[Dict]
+    actions: List[Dict]
 
 
 class SyncResponse(BaseModel):
@@ -239,6 +255,36 @@ def query_rag(request: QueryRequest):
     
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"질문 처리 실패: {str(e)}")
+
+
+@app.post("/agent-query", response_model=AgentQueryResponse)
+def agent_query(request: AgentQueryRequest):
+    """Agentic RAG 질문 (도구 사용 가능)"""
+    try:
+        print(f"🤖 Agent 모드로 질문 처리: {request.question}")
+        
+        # Agent 실행
+        result = agent.run(request.question, max_iterations=request.max_iterations)
+        
+        # 행동 목록 직렬화
+        actions_list = [
+            {
+                "tool": action.tool,
+                "tool_input": action.tool_input,
+                "reasoning": action.reasoning
+            }
+            for action in result.actions
+        ]
+        
+        return AgentQueryResponse(
+            status="success",
+            answer=result.answer,
+            sources=result.sources,
+            actions=actions_list
+        )
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Agent 실행 실패: {str(e)}")
 
 
 @app.delete("/session/{session_id}")
