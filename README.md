@@ -558,6 +558,34 @@ curl -X POST http://localhost:8000/create-page \
 - **Async**: asyncio, aiohttp
 - **Frontend**: HTML/CSS/JavaScript
 
+## 🔮 향후 계획: 상용 LLM API 도입
+
+### 배경
+
+현재 시스템은 Ollama(llama3.3:70b) 로컬 LLM을 사용하고 있습니다. **읽기(검색+답변)** 작업은 RAG 파이프라인과 결합하여 충분한 품질을 제공하지만, **쓰기(수정/삽입)** 작업에서는 다음과 같은 한계가 있습니다:
+
+- 로컬 LLM의 **tool calling / 구조화된 출력 정확도**가 상용 모델 대비 낮음
+- 한국어 문서 수정 시 **할루시네이션** 및 의도와 다른 수정이 발생할 수 있음
+- ReAct Agent가 `page_id|내용` 같은 정확한 포맷을 일관되게 생성하기 어려움
+- RAG는 정보 검색에는 효과적이지만, 정확한 수정 액션을 보장하지는 않음
+
+### 결론
+
+**읽기는 로컬 LLM + RAG, 쓰기는 상용 LLM API**로 이원화하는 방향으로 전환 예정입니다.
+
+| 작업 | 현재 (v2.0) | 계획 (v3.0) |
+|------|-------------|-------------|
+| 검색 + 답변 | Ollama (llama3.3:70b) | Ollama 유지 (로컬 RAG) |
+| 임베딩 | Ollama (bge-m3) | Ollama 유지 |
+| 페이지 수정/삽입 | Ollama (llama3.3:70b) | **상용 API** (GPT-4o / Claude 등) |
+| Agent tool calling | Ollama (llama3.3:70b) | **상용 API** (정확도 향상) |
+
+### 기대 효과
+
+- 수정/삽입 시 할루시네이션 대폭 감소
+- Agent의 tool calling 정확도 향상
+- 읽기 작업은 로컬 유지로 비용 최소화 (쓰기 빈도는 상대적으로 낮음)
+
 ## 📝 라이선스
 
 MIT License
